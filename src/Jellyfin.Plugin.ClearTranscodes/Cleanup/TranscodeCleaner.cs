@@ -23,6 +23,19 @@ namespace Jellyfin.Plugin.ClearTranscodes.Cleanup
             ".vtt", ".srt", ".ass", ".ssa", ".sub", ".idx"
         };
 
+        /// <summary>
+        /// Never walk through a symlink or junction: following one would take the sweep
+        /// outside the transcode directory entirely, and a linked-in media folder is full
+        /// of allow-listed extensions. Inaccessible subfolders are skipped rather than
+        /// aborting the whole run.
+        /// </summary>
+        private static readonly EnumerationOptions RecursiveOptions = new()
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.ReparsePoint
+        };
+
         private readonly ILogger _logger;
 
         public TranscodeCleaner(ILogger logger)
@@ -48,6 +61,12 @@ namespace Jellyfin.Plugin.ClearTranscodes.Cleanup
                 return new CleanupResult(0, 0, 0, 0);
             }
 
+            if (!IsSaneRoot(root))
+            {
+                progress?.Report(100);
+                return new CleanupResult(0, 0, 0, 0);
+            }
+
             if (!Directory.Exists(root))
             {
                 _logger.LogInformation("Transcode directory {Path} does not exist, nothing to clean.", root);
@@ -55,7 +74,7 @@ namespace Jellyfin.Plugin.ClearTranscodes.Cleanup
                 return new CleanupResult(0, 0, 0, 0);
             }
 
-            var all = Directory.GetFiles(root, "*", SearchOption.AllDirectories);
+            var all = Directory.GetFiles(root, "*", RecursiveOptions);
             var files = all.Where(f => IsDeletionCandidate(f, allowed)).ToArray();
             var preserved = all.Length - files.Length;
             var deleted = 0;
@@ -98,6 +117,42 @@ namespace Jellyfin.Plugin.ClearTranscodes.Cleanup
                 RemovedDirectories = removedDirectories,
                 Preserved = preserved
             };
+        }
+
+        /// <summary>
+        /// A last line of defence against a misconfigured transcode path. Sweeping a
+        /// filesystem root would be catastrophic and is never what anyone meant, so
+        /// refuse rather than trust the configuration.
+        /// </summary>
+        private bool IsSaneRoot(string root)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                _logger.LogWarning("No transcode directory is configured, nothing to clean.");
+                return false;
+            }
+
+            string full;
+            try
+            {
+                full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Transcode directory {Path} is not a usable path, skipping cleanup.", root);
+                return false;
+            }
+
+            var pathRoot = Path.TrimEndingDirectorySeparator(Path.GetPathRoot(full) ?? string.Empty);
+            if (full.Length == 0 || string.Equals(full, pathRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError(
+                    "Refusing to clean {Path}: that is a filesystem root, not a transcode directory. Check Dashboard -> Playback -> Transcoding.",
+                    root);
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -151,7 +206,7 @@ namespace Jellyfin.Plugin.ClearTranscodes.Cleanup
             var removed = 0;
 
             // Deepest first, so a folder that only held now-empty folders goes too.
-            foreach (var dir in Directory.GetDirectories(root, "*", SearchOption.AllDirectories)
+            foreach (var dir in Directory.GetDirectories(root, "*", RecursiveOptions)
                          .OrderByDescending(d => d.Length))
             {
                 cancellationToken.ThrowIfCancellationRequested();

@@ -190,6 +190,72 @@ namespace Jellyfin.Plugin.ClearTranscodes.Tests
         }
 
         [Fact]
+        public void NeverFollowsALinkOutOfTheTranscodeDirectory()
+        {
+            // Anything reachable only through a symlink is outside the transcode
+            // directory by definition, and a linked-in media folder is full of
+            // allow-listed extensions.
+            var outside = Path.Combine(Path.GetTempPath(), "cleartranscodes-outside-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(outside);
+            var precious = Path.Combine(outside, "family-video.mp4");
+            File.WriteAllBytes(precious, new byte[16]);
+            File.SetLastWriteTimeUtc(precious, DateTime.UtcNow - TimeSpan.FromDays(365));
+
+            var link = Path.Combine(_root, "link-to-precious");
+            try
+            {
+                Directory.CreateSymbolicLink(link, outside);
+            }
+            catch (Exception)
+            {
+                // Unprivileged Windows without developer mode cannot create symlinks.
+                Directory.Delete(outside, recursive: true);
+                return;
+            }
+
+            try
+            {
+                var result = Clean();
+
+                Assert.True(File.Exists(precious));
+                Assert.Equal(0, result.Inspected);
+                Assert.Equal(0, result.Deleted);
+            }
+            finally
+            {
+                Directory.Delete(link);
+                Directory.Delete(outside, recursive: true);
+            }
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void RefusesToRunWithoutATranscodeDirectory(string root)
+        {
+            var result = _cleaner.Clean(root, DateTime.UtcNow, TranscodeCleaner.DefaultExtensions, null, CancellationToken.None);
+
+            Assert.Equal(0, result.Inspected);
+            Assert.Equal(0, result.Deleted);
+        }
+
+        [Fact]
+        public void RefusesToSweepAFilesystemRoot()
+        {
+            var filesystemRoot = Path.GetPathRoot(Path.GetTempPath())!;
+
+            var result = _cleaner.Clean(
+                filesystemRoot,
+                DateTime.UtcNow,
+                TranscodeCleaner.DefaultExtensions,
+                null,
+                CancellationToken.None);
+
+            Assert.Equal(0, result.Inspected);
+            Assert.Equal(0, result.Deleted);
+        }
+
+        [Fact]
         public void MissingDirectoryIsNotAnError()
         {
             var result = _cleaner.Clean(
