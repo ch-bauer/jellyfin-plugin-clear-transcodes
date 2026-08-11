@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Fixed: the task deleted Jellyfin's own .jellyfin-transcode marker file. Hidden files are now never touched, and a file is only deleted when its extension is on a configurable allow-list. The default maximum file age is 6 hours.",
+  "changelog": "Safety: symlinks and junctions are no longer followed, so the sweep can never leave the transcode directory; a transcode path that is not Jellyfin's default now requires the new \"Allow cleaning a custom transcode directory\" setting; a filesystem root is refused outright; and an unreadable subfolder no longer aborts the run.",
   "description": "Adds a maintenance task that deletes files from the transcode temp directory once they are older than a configurable number of hours, so abandoned transcodes stop filling up the disk.",
   "guid": "c3cbb73c-59e6-4ec6-9cba-a86ba70e73c0",
   "imageUrl": "https://raw.githubusercontent.com/ch-bauer/jellyfin-plugin-clear-transcodes/main/images/icon.png",
@@ -9,7 +9,7 @@
   "owner": "Christian",
   "targetAbi": "10.11.0.0",
   "timestamp": "2026-08-11T00:00:00.000Z",
-  "version": "1.0.2.0",
+  "version": "1.0.3.0",
   "status": "Active",
   "autoUpdate": false
 }
