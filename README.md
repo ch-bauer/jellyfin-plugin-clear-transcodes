@@ -10,7 +10,7 @@ segments that were already written stay behind — and nothing cleans them up. O
 server that quietly grows into tens of gigabytes.
 
 This plugin adds one scheduled task, **Clear Transcode Directory**, that deletes any file
-in that directory whose last-write time is older than a configurable age (default: 24
+in that directory whose last-write time is older than a configurable age (default: 6
 hours), and then removes the per-session folders those files leave empty.
 
 ## How it works
@@ -31,7 +31,7 @@ path — so it always cleans the folder actually in use.
 
 | Setting | Default | Description |
 |---|---|---|
-| Max file age (hours) | 24 | Files older than this are deleted on the next run. |
+| Max file age (hours) | 6 | Files older than this are deleted on the next run. |
 
 **Dashboard → Scheduled Tasks → Maintenance → Clear Transcode Directory** runs the task on
 demand or changes its trigger. The default trigger is every 6 hours.

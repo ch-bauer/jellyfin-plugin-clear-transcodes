@@ -33,7 +33,7 @@ namespace Jellyfin.Plugin.ClearTranscodes.ScheduledTasks
 
         public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
         {
-            var maxAgeHours = Plugin.Instance?.Configuration.MaxAgeHours ?? 24;
+            var maxAgeHours = Plugin.Instance?.Configuration.MaxAgeHours ?? 6;
             var cutoff = DateTime.UtcNow - TimeSpan.FromHours(maxAgeHours);
 
             // Same resolution Jellyfin itself uses: the encoding option if the user

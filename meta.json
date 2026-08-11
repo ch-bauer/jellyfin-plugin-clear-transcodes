@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Initial release: scheduled task that deletes transcode temp files older than a configurable age (default 24h) and cleans up the folders they leave behind.",
+  "changelog": "The default maximum file age is now 6 hours instead of 24. Existing installations keep whatever is configured in the plugin settings.",
   "description": "Adds a maintenance task that deletes files from the transcode temp directory once they are older than a configurable number of hours, so abandoned transcodes stop filling up the disk.",
   "guid": "c3cbb73c-59e6-4ec6-9cba-a86ba70e73c0",
   "imageUrl": "https://raw.githubusercontent.com/ch-bauer/jellyfin-plugin-clear-transcodes/main/images/icon.png",
@@ -9,7 +9,7 @@
   "owner": "Christian",
   "targetAbi": "10.11.0.0",
   "timestamp": "2026-08-11T00:00:00.000Z",
-  "version": "1.0.0.0",
+  "version": "1.0.1.0",
   "status": "Active",
   "autoUpdate": false
 }

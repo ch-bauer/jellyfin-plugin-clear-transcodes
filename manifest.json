@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ch-bauer/jellyfin-plugin-clear-transcodes/main/images/icon.png",
     "versions": [
       {
+        "version": "1.0.1.0",
+        "changelog": "The default maximum file age is now 6 hours instead of 24. Existing installations keep whatever is configured in the plugin settings.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ch-bauer/jellyfin-plugin-clear-transcodes/releases/download/v1.0.1.0/clear-transcodes_1.0.1.0.zip",
+        "checksum": "PENDING",
+        "timestamp": "2026-08-11T00:00:00Z"
+      },
+      {
         "version": "1.0.0.0",
         "changelog": "Initial release: scheduled task that deletes transcode temp files older than a configurable age (default 24h) and cleans up the folders they leave behind.",
         "targetAbi": "10.11.0.0",

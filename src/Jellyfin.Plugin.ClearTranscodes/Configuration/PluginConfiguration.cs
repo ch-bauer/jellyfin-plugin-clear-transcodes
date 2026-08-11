@@ -8,6 +8,6 @@ namespace Jellyfin.Plugin.ClearTranscodes.Configuration
         /// Files in the transcode temp directory whose last-write time is older
         /// than this many hours get deleted when the scheduled task runs.
         /// </summary>
-        public int MaxAgeHours { get; set; } = 24;
+        public int MaxAgeHours { get; set; } = 6;
     }
 }
