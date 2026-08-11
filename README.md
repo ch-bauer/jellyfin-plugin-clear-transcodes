@@ -19,7 +19,12 @@ The task resolves the transcode directory the same way Jellyfin itself does — 
 **Dashboard → Playback → Transcoding** if one is set, otherwise the server's default temp
 path — so it always cleans the folder actually in use.
 
-A file is only deleted when it clears every guard:
+Before any of that, the directory itself has to clear two checks: it must be Jellyfin's own
+default transcode path (`<cache>/transcodes`) — anything else needs the explicit opt-in
+described below — and it must not be a filesystem root, which is refused outright as a
+misconfiguration.
+
+A file is then only deleted when it clears every guard:
 
 - **Its extension is on the allow-list.** Nothing else is ever a candidate, no matter how old
   it is — a stray `.avi` or `.db` in the transcode folder is left alone. The default list
@@ -33,9 +38,26 @@ A file is only deleted when it clears every guard:
 - **It is older than the cutoff.** This is what keeps in-progress transcodes safe: an active
   session writes segments continuously, so its files never look stale.
 
-Beyond that: a file that can't be deleted (locked by a running `ffmpeg`, for instance) is
-logged and skipped instead of aborting the run, and the root transcode directory itself is
-never removed — only the per-session subfolders that are left empty.
+Beyond that: symlinks and junctions are never followed, so the sweep cannot leave the
+transcode directory; an unreadable subfolder is skipped rather than failing the run; a file
+that can't be deleted (locked by a running `ffmpeg`, for instance) is logged and skipped; and
+the transcode directory itself is never removed — only the per-session subfolders left empty.
+
+Nothing is ever written, renamed or modified. The plugin's only destructive operations are
+deleting allow-listed files inside the transcode directory and removing subfolders of it that
+are already empty.
+
+## Custom transcode directories
+
+If you have pointed **Dashboard → Playback → Transcoding** somewhere other than Jellyfin's
+default, the task **refuses to run** and logs the path it would have cleaned. That folder is
+the one thing the plugin can't reason about — it might be a dedicated scratch disk, or it
+might be somewhere that holds files worth keeping, and video and subtitle extensions are on
+the delete list.
+
+To allow it, tick **Allow cleaning a custom transcode directory** in the plugin settings after
+checking that the folder really does contain nothing but scratch files. Runs against a custom
+directory keep logging a warning naming the path, so it stays visible in the log.
 
 ## Configuration
 
@@ -45,6 +67,7 @@ never removed — only the per-session subfolders that are left empty.
 |---|---|---|
 | Max file age (hours) | 6 | Files older than this are deleted on the next run. |
 | File extensions to delete | the list above | Comma-separated allow-list. Only these extensions are ever deleted; an empty list deletes nothing. A "Reset to defaults" button restores the stock list. |
+| Allow cleaning a custom transcode directory | off | Required before the task will touch a transcode path other than Jellyfin's default. See below. |
 
 **Dashboard → Scheduled Tasks → Maintenance → Clear Transcode Directory** runs the task on
 demand or changes its trigger. The default trigger is every 6 hours.

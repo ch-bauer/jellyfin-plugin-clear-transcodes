@@ -33,6 +33,20 @@
                             <span>Reset to defaults</span>
                         </button>
                     </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AllowCustomDirectory" name="AllowCustomDirectory" type="checkbox" is="emby-checkbox" />
+                            <span>Allow cleaning a custom transcode directory</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            <strong>Only tick this if you have changed the transcoding path and are
+                            certain the folder contains nothing but scratch files.</strong>
+                            The task normally refuses to run unless the transcode path is Jellyfin's
+                            own default, because a custom path could point at a directory that holds
+                            something worth keeping — and video and subtitle extensions are on the
+                            delete list. The path in use is written to the server log on every run.
+                        </div>
+                    </div>
                     <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                         <span>Save</span>
                     </button>
@@ -60,6 +74,7 @@
                     ApiClient.getPluginConfiguration(ClearTranscodesConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#MaxAgeHours').value = config.MaxAgeHours;
                         document.querySelector('#FileExtensions').value = (config.FileExtensions || []).join(', ');
+                        document.querySelector('#AllowCustomDirectory').checked = config.AllowCustomDirectory === true;
                         Dashboard.hideLoadingMsg();
                     });
                 });
@@ -77,6 +92,7 @@
                     ApiClient.getPluginConfiguration(ClearTranscodesConfig.pluginUniqueId).then(function (config) {
                         config.MaxAgeHours = Number(document.querySelector('#MaxAgeHours').value);
                         config.FileExtensions = parseExtensions(document.querySelector('#FileExtensions').value);
+                        config.AllowCustomDirectory = document.querySelector('#AllowCustomDirectory').checked;
                         ApiClient.updatePluginConfiguration(ClearTranscodesConfig.pluginUniqueId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });

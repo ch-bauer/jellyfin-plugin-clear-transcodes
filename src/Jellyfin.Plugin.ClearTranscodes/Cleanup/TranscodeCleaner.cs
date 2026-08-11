@@ -120,6 +120,37 @@ namespace Jellyfin.Plugin.ClearTranscodes.Cleanup
         }
 
         /// <summary>
+        /// Compares two filesystem paths for identity, tolerating trailing separators
+        /// and the different spellings of the same directory. Case matters on Unix and
+        /// does not on Windows.
+        /// </summary>
+        public static bool IsSamePath(string? left, string? right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            {
+                return false;
+            }
+
+            try
+            {
+                var comparison = OperatingSystem.IsWindows()
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
+
+                return string.Equals(
+                    Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+                    Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
+                    comparison);
+            }
+            catch (Exception)
+            {
+                // An unusable path is never "the same as" anything, which keeps the
+                // caller on its cautious branch.
+                return false;
+            }
+        }
+
+        /// <summary>
         /// A last line of defence against a misconfigured transcode path. Sweeping a
         /// filesystem root would be catastrophic and is never what anyone meant, so
         /// refuse rather than trust the configuration.

@@ -17,5 +17,14 @@ namespace Jellyfin.Plugin.ClearTranscodes.Configuration
         /// task deletes nothing at all.
         /// </summary>
         public string[] FileExtensions { get; set; } = (string[])TranscodeCleaner.DefaultExtensions.Clone();
+
+        /// <summary>
+        /// Whether the task may run when the transcode path has been pointed somewhere
+        /// other than Jellyfin's own default (<c>&lt;cache&gt;/transcodes</c>). Off by
+        /// default: a custom path is the one case where the plugin could be aimed at a
+        /// directory that holds something other than scratch files, so it has to be
+        /// confirmed deliberately.
+        /// </summary>
+        public bool AllowCustomDirectory { get; set; }
     }
 }

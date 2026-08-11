@@ -42,6 +42,12 @@ namespace Jellyfin.Plugin.ClearTranscodes.ScheduledTasks
             // set one, otherwise the server's default transcode temp directory.
             var path = _config.GetTranscodePath();
 
+            if (!IsAllowedDirectory(path, configuration.AllowCustomDirectory))
+            {
+                progress.Report(100);
+                return Task.CompletedTask;
+            }
+
             var result = new TranscodeCleaner(_logger)
                 .Clean(path, cutoff, configuration.FileExtensions, progress, cancellationToken);
 
@@ -56,6 +62,38 @@ namespace Jellyfin.Plugin.ClearTranscodes.ScheduledTasks
                 result.Preserved);
 
             return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Jellyfin's own default is <c>&lt;cache&gt;/transcodes</c>, and a path that has
+        /// been changed from it is the one case the plugin cannot reason about: it might
+        /// be a dedicated SSD scratch folder, or it might be a directory that holds things
+        /// worth keeping. So a custom path is never swept until it has been ticked off in
+        /// the plugin settings.
+        /// </summary>
+        private bool IsAllowedDirectory(string path, bool allowCustomDirectory)
+        {
+            var defaultPath = Path.Combine(_config.CommonApplicationPaths.CachePath, "transcodes");
+
+            if (TranscodeCleaner.IsSamePath(path, defaultPath))
+            {
+                return true;
+            }
+
+            if (!allowCustomDirectory)
+            {
+                _logger.LogWarning(
+                    "Skipping cleanup: the transcode directory is {Path}, which is not Jellyfin's default ({DefaultPath}). Nothing has been deleted. If that path really is scratch space, tick \"Allow cleaning a custom transcode directory\" under Plugins -> Clear Transcodes.",
+                    path,
+                    defaultPath);
+                return false;
+            }
+
+            _logger.LogWarning(
+                "Cleaning {Path}, which is not Jellyfin's default transcode directory ({DefaultPath}). This was explicitly allowed in the plugin settings.",
+                path,
+                defaultPath);
+            return true;
         }
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()

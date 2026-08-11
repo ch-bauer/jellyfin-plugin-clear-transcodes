@@ -256,6 +256,29 @@ namespace Jellyfin.Plugin.ClearTranscodes.Tests
         }
 
         [Fact]
+        public void SamePathIsRecognisedThroughTrailingSeparatorsAndRelativeSegments()
+        {
+            var withSeparator = _root + Path.DirectorySeparatorChar;
+            var roundabout = Path.Combine(_root, "session-a", "..");
+
+            Assert.True(TranscodeCleaner.IsSamePath(_root, _root));
+            Assert.True(TranscodeCleaner.IsSamePath(_root, withSeparator));
+            Assert.True(TranscodeCleaner.IsSamePath(_root, roundabout));
+            Assert.False(TranscodeCleaner.IsSamePath(_root, Path.Combine(_root, "session-a")));
+        }
+
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData("", "")]
+        [InlineData("   ", "   ")]
+        public void BlankPathsAreNeverConsideredEqual(string? left, string? right)
+        {
+            // A blank path must not be treated as "the default", or the custom-directory
+            // gate would open on missing configuration.
+            Assert.False(TranscodeCleaner.IsSamePath(left, right));
+        }
+
+        [Fact]
         public void MissingDirectoryIsNotAnError()
         {
             var result = _cleaner.Clean(
