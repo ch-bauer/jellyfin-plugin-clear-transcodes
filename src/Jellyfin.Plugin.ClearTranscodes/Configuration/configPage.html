@@ -17,6 +17,22 @@
                             when the "Clear Transcode Directory" scheduled task runs.
                         </div>
                     </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel" for="FileExtensions">File extensions to delete</label>
+                        <input id="FileExtensions" name="FileExtensions" type="text" is="emby-input" />
+                        <div class="fieldDescription">
+                            Comma-separated allow-list. A file is only ever deleted when its
+                            extension appears here — everything else is left alone, no matter how
+                            old it is. Leave empty to delete nothing at all.
+                        </div>
+                        <div class="fieldDescription">
+                            Hidden files (such as Jellyfin's own <code>.jellyfin-transcode</code>
+                            marker) are always kept.
+                        </div>
+                        <button type="button" id="ResetExtensions" is="emby-button" class="raised button-cancel block emby-button">
+                            <span>Reset to defaults</span>
+                        </button>
+                    </div>
                     <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                         <span>Save</span>
                     </button>
@@ -25,16 +41,33 @@
         </div>
         <script type="text/javascript">
             var ClearTranscodesConfig = {
-                pluginUniqueId: 'c3cbb73c-59e6-4ec6-9cba-a86ba70e73c0'
+                pluginUniqueId: 'c3cbb73c-59e6-4ec6-9cba-a86ba70e73c0',
+                defaultExtensions: ['.ts', '.m3u8', '.m4s', '.mp4', '.mkv', '.webm',
+                    '.aac', '.mp3', '.ogg', '.opus', '.flac', '.wav',
+                    '.vtt', '.srt', '.ass', '.ssa', '.sub', '.idx']
             };
+
+            function parseExtensions(value) {
+                return value.split(',')
+                    .map(function (part) { return part.trim(); })
+                    .filter(function (part) { return part.length > 0 && part !== '.'; })
+                    .map(function (part) { return part.charAt(0) === '.' ? part : '.' + part; });
+            }
 
             document.querySelector('#ClearTranscodesConfigPage')
                 .addEventListener('pageshow', function () {
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(ClearTranscodesConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#MaxAgeHours').value = config.MaxAgeHours;
+                        document.querySelector('#FileExtensions').value = (config.FileExtensions || []).join(', ');
                         Dashboard.hideLoadingMsg();
                     });
+                });
+
+            document.querySelector('#ResetExtensions')
+                .addEventListener('click', function () {
+                    document.querySelector('#FileExtensions').value =
+                        ClearTranscodesConfig.defaultExtensions.join(', ');
                 });
 
             document.querySelector('#ClearTranscodesConfigForm')
@@ -43,6 +76,7 @@
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(ClearTranscodesConfig.pluginUniqueId).then(function (config) {
                         config.MaxAgeHours = Number(document.querySelector('#MaxAgeHours').value);
+                        config.FileExtensions = parseExtensions(document.querySelector('#FileExtensions').value);
                         ApiClient.updatePluginConfiguration(ClearTranscodesConfig.pluginUniqueId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });

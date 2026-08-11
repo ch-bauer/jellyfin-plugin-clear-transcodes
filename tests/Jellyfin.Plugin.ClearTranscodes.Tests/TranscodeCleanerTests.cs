@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.ClearTranscodes.Cleanup;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -30,8 +31,13 @@ namespace Jellyfin.Plugin.ClearTranscodes.Tests
             return path;
         }
 
-        private CleanupResult Clean(int maxAgeHours = 24) =>
-            _cleaner.Clean(_root, DateTime.UtcNow - TimeSpan.FromHours(maxAgeHours), null, CancellationToken.None);
+        private CleanupResult Clean(int maxAgeHours = 24, params string[] extensions) =>
+            _cleaner.Clean(
+                _root,
+                DateTime.UtcNow - TimeSpan.FromHours(maxAgeHours),
+                extensions.Length > 0 ? extensions : TranscodeCleaner.DefaultExtensions,
+                null,
+                CancellationToken.None);
 
         [Fact]
         public void DeletesFilesOlderThanCutoff()
@@ -86,11 +92,110 @@ namespace Jellyfin.Plugin.ClearTranscodes.Tests
         }
 
         [Fact]
+        public void KeepsJellyfinsTranscodeMarkerHoweverOldItIs()
+        {
+            var marker = WriteFile(".jellyfin-transcode", TimeSpan.FromDays(90));
+            var stale = WriteFile("old.ts", TimeSpan.FromHours(48));
+
+            var result = Clean();
+
+            Assert.True(File.Exists(marker));
+            Assert.False(File.Exists(stale));
+            Assert.Equal(1, result.Inspected);
+            Assert.Equal(1, result.Deleted);
+            Assert.Equal(1, result.Preserved);
+        }
+
+        [Fact]
+        public void KeepsHiddenFilesInSubdirectoriesAndTheirFolders()
+        {
+            var marker = WriteFile(Path.Combine("session-a", ".keep"), TimeSpan.FromDays(90));
+            WriteFile(Path.Combine("session-a", "segment0.ts"), TimeSpan.FromHours(48));
+
+            var result = Clean();
+
+            Assert.True(File.Exists(marker));
+            Assert.True(Directory.Exists(Path.Combine(_root, "session-a")));
+            Assert.Equal(0, result.RemovedDirectories);
+            Assert.Equal(1, result.Preserved);
+        }
+
+        [Fact]
+        public void NeverTouchesExtensionsOutsideTheAllowList()
+        {
+            var library = WriteFile("holiday-video.avi", TimeSpan.FromDays(365));
+            var database = WriteFile("library.db", TimeSpan.FromDays(365));
+            var noExtension = WriteFile("README", TimeSpan.FromDays(365));
+            var segment = WriteFile("segment0.ts", TimeSpan.FromHours(48));
+
+            var result = Clean();
+
+            Assert.True(File.Exists(library));
+            Assert.True(File.Exists(database));
+            Assert.True(File.Exists(noExtension));
+            Assert.False(File.Exists(segment));
+            Assert.Equal(1, result.Inspected);
+            Assert.Equal(3, result.Preserved);
+        }
+
+        [Fact]
+        public void HonoursANarrowedAllowList()
+        {
+            var segment = WriteFile("segment0.ts", TimeSpan.FromHours(48));
+            var remux = WriteFile("remux.mp4", TimeSpan.FromHours(48));
+
+            var result = Clean(24, ".ts");
+
+            Assert.False(File.Exists(segment));
+            Assert.True(File.Exists(remux));
+            Assert.Equal(1, result.Deleted);
+            Assert.Equal(1, result.Preserved);
+        }
+
+        [Fact]
+        public void AnEmptyAllowListDeletesNothing()
+        {
+            var segment = WriteFile("segment0.ts", TimeSpan.FromDays(365));
+
+            var result = _cleaner.Clean(_root, DateTime.UtcNow, Array.Empty<string>(), null, CancellationToken.None);
+
+            Assert.True(File.Exists(segment));
+            Assert.Equal(0, result.Deleted);
+        }
+
+        [Theory]
+        [InlineData("ts")]
+        [InlineData(".TS")]
+        [InlineData("  .ts  ")]
+        [InlineData("*.ts")]
+        public void ExtensionsAreAcceptedHoweverTheyAreTyped(string configured)
+        {
+            var segment = WriteFile("segment0.ts", TimeSpan.FromHours(48));
+
+            var result = Clean(24, configured);
+
+            Assert.False(File.Exists(segment));
+            Assert.Equal(1, result.Deleted);
+        }
+
+        [Fact]
+        public void ExtensionMatchingIsCaseInsensitive()
+        {
+            var segment = WriteFile("SEGMENT0.TS", TimeSpan.FromHours(48));
+
+            var result = Clean(24, ".ts");
+
+            Assert.False(File.Exists(segment));
+            Assert.Equal(1, result.Deleted);
+        }
+
+        [Fact]
         public void MissingDirectoryIsNotAnError()
         {
             var result = _cleaner.Clean(
                 Path.Combine(_root, "does-not-exist"),
                 DateTime.UtcNow,
+                TranscodeCleaner.DefaultExtensions,
                 null,
                 CancellationToken.None);
 
@@ -128,7 +233,12 @@ namespace Jellyfin.Plugin.ClearTranscodes.Tests
             WriteFile("old.ts", TimeSpan.FromHours(48));
             var reported = new RecordingProgress();
 
-            _cleaner.Clean(_root, DateTime.UtcNow, reported, CancellationToken.None);
+            _cleaner.Clean(
+                _root,
+                DateTime.UtcNow,
+                TranscodeCleaner.DefaultExtensions,
+                reported,
+                CancellationToken.None);
 
             Assert.Contains(100, reported.Values);
         }

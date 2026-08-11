@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.ClearTranscodes.Cleanup;
+using Jellyfin.Plugin.ClearTranscodes.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Tasks;
@@ -33,23 +34,26 @@ namespace Jellyfin.Plugin.ClearTranscodes.ScheduledTasks
 
         public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
         {
-            var maxAgeHours = Plugin.Instance?.Configuration.MaxAgeHours ?? 6;
+            var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            var maxAgeHours = configuration.MaxAgeHours;
             var cutoff = DateTime.UtcNow - TimeSpan.FromHours(maxAgeHours);
 
             // Same resolution Jellyfin itself uses: the encoding option if the user
             // set one, otherwise the server's default transcode temp directory.
             var path = _config.GetTranscodePath();
 
-            var result = new TranscodeCleaner(_logger).Clean(path, cutoff, progress, cancellationToken);
+            var result = new TranscodeCleaner(_logger)
+                .Clean(path, cutoff, configuration.FileExtensions, progress, cancellationToken);
 
             _logger.LogInformation(
-                "Transcode cleanup complete. Deleted {Deleted} of {Inspected} files older than {Hours}h ({Megabytes:F1} MB freed), removed {Directories} empty folders, skipped {Failed} locked files.",
+                "Transcode cleanup complete. Deleted {Deleted} of {Inspected} files older than {Hours}h ({Megabytes:F1} MB freed), removed {Directories} empty folders, skipped {Failed} locked files, left {Preserved} Jellyfin files untouched.",
                 result.Deleted,
                 result.Inspected,
                 maxAgeHours,
                 result.BytesFreed / 1024d / 1024d,
                 result.RemovedDirectories,
-                result.Failed);
+                result.Failed,
+                result.Preserved);
 
             return Task.CompletedTask;
         }
