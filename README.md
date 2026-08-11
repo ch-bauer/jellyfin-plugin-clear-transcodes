@@ -1,6 +1,6 @@
 <div align="center">
   <img src="images/icon.png" alt="Clear Transcodes" width="128" />
-  <h1>Clear Transcodes</h1>
+  <h1>Clear Transcodes (Proof of Concept)</h1>
   <p>A Jellyfin plugin that keeps the transcode temp folder from filling up.</p>
 </div>
 
