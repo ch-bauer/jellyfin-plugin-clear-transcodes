@@ -39,8 +39,23 @@ namespace Jellyfin.Plugin.ClearTranscodes.ScheduledTasks
             var cutoff = DateTime.UtcNow - TimeSpan.FromHours(maxAgeHours);
 
             // Same resolution Jellyfin itself uses: the encoding option if the user
-            // set one, otherwise the server's default transcode temp directory.
-            var path = _config.GetTranscodePath();
+            // set one, otherwise the server's default transcode temp directory. This
+            // can throw — Jellyfin creates the directory and its marker file here, so
+            // a transcode path the server cannot write to fails before we see it. That
+            // is a misconfiguration to report, not a reason to fail the task.
+            string path;
+            try
+            {
+                path = _config.GetTranscodePath();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Could not determine the transcode directory, so nothing has been deleted. Jellyfin itself cannot use this path either — check Dashboard -> Playback -> Transcoding.");
+                progress.Report(100);
+                return Task.CompletedTask;
+            }
 
             if (!IsAllowedDirectory(path, configuration.AllowCustomDirectory))
             {
@@ -48,8 +63,23 @@ namespace Jellyfin.Plugin.ClearTranscodes.ScheduledTasks
                 return Task.CompletedTask;
             }
 
-            var result = new TranscodeCleaner(_logger)
-                .Clean(path, cutoff, configuration.FileExtensions, progress, cancellationToken);
+            CleanupResult result;
+            try
+            {
+                result = new TranscodeCleaner(_logger)
+                    .Clean(path, cutoff, configuration.FileExtensions, progress, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // A cancelled task is a cancelled task, not a failure.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Transcode cleanup of {Path} could not be completed.", path);
+                progress.Report(100);
+                return Task.CompletedTask;
+            }
 
             _logger.LogInformation(
                 "Transcode cleanup complete. Deleted {Deleted} of {Inspected} files older than {Hours}h ({Megabytes:F1} MB freed), removed {Directories} empty folders, skipped {Failed} locked files, left {Preserved} Jellyfin files untouched.",
