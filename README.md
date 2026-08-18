@@ -4,6 +4,16 @@
   <p>A Jellyfin plugin that keeps the transcode temp folder from filling up.</p>
 </div>
 
+> [!CAUTION]
+> **This is a proof of concept, written with AI.** It is purely for testing, and there are
+> many items that are known to be incorrect or broken. It is not advisable to use this on a
+> non-test server.
+>
+> For this reason it is offered as is, with **no guarantee of support, bug fixes, or
+> troubleshooting**.
+>
+> **It is NOT recommended to fork or build on top of this plugin!**
+
 Jellyfin writes every live transcode into its transcode temp directory. When a client
 disconnects mid-stream, or the server is restarted while a transcode is running, the
 segments that were already written stay behind — and nothing cleans them up. On a busy
